@@ -147,7 +147,6 @@ exec(hasYarn() ? 'yarn' : 'npm install', async () => {
   await createDirectories()
   await tsconfigInfo()
   await createNextConfig()
-  await runCommands()
 
   log('Installing eslint')
   await run(`${pkgInstaller(true)} eslint`)
@@ -165,4 +164,6 @@ exec(hasYarn() ? 'yarn' : 'npm install', async () => {
   await run(`${pkgInstaller(true)} sass`)
 
   console.log('')
+
+  await runCommands()
 })
