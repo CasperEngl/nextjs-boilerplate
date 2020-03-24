@@ -2,8 +2,9 @@
 
 import { exec } from 'child_process'
 import hasYarn from 'has-yarn'
+import { stripIndent } from 'common-tags'
 import {
-  // readFile,
+  readFile,
   writeFile,
   pathExists,
   ensureDir,
@@ -61,7 +62,7 @@ exec(hasYarn() ? 'yarn' : 'npm install', async () => {
   await ensureDir('public')
   await ensureDir('style')
 
-  /*   const pkgPath = `${process.cwd()}/package.json`
+  const pkgPath = `${process.cwd()}/package.json`
 
   const pkgString = (await readFile(pkgPath)).toString()
   const pkgJson = JSON.parse(pkgString)
@@ -72,18 +73,18 @@ exec(hasYarn() ? 'yarn' : 'npm install', async () => {
     start: 'next start',
   }
 
-  await writeFile(pkgPath, JSON.stringify(pkgJson, null, 2)) */
+  await writeFile(pkgPath, JSON.stringify(pkgJson, null, 2))
 
-  console.log('Add the following to your `tsconfig.json`')
-  console.log(`"compilerOptions": {
-  "baseUrl": ".",
-  "paths": {
-    "@/components/*": ["components/*"],
-    "@/layout/*": ["layout/*"],
-    "@/public/*": ["public/*"],
-    "@/style/*": ["style/*"]
-  }
-}`)
+  console.log('Add the following to your `tsconfig.json` inside `compilerOptions`')
+  console.log(stripIndent`
+    "baseUrl": ".",
+    "paths": {
+      "@/components/*": ["components/*"],
+      "@/layout/*": ["layout/*"],
+      "@/public/*": ["public/*"],
+      "@/style/*": ["style/*"]
+    }
+  `)
 
   log('Installing eslint')
   await run(`${pkgInstaller(true)} eslint`)
@@ -101,7 +102,7 @@ exec(hasYarn() ? 'yarn' : 'npm install', async () => {
   await run(`${pkgInstaller(true)} sass`)
 
   if (!await pathExists('test-next-config.js')) {
-    await writeFile('test-next.config.js', `
+    await writeFile('test-next.config.js', stripIndent`
       /* eslint-disable no-param-reassign */
 
       const path = require('path')
