@@ -21,6 +21,9 @@
     "rules": {
         "semi": [2, "never"],
         "comma-dangle": [2, "always-multiline"],
-        "no-console": 0
+        "no-console": 0,
+        "no-extend-native": 0,
+        "no-restricted-syntax": 0,
+        "func-names": 0
     }
 }
