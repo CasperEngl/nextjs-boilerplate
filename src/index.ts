@@ -14,6 +14,18 @@ const log = (message: string, suffix = '...'): void => {
   process.stdout.write(`${message.trim()}${suffix}`)
 }
 
+type Object = {
+  [key: string]: any
+}
+
+const getKeyIfExists = (object: Object, key: string, value: string) => {
+  if (object[key]) {
+    return object[key]
+  }
+
+  return value
+}
+
 type LogStatus = 'SUCCESS' | 'ERROR'
 
 const logStatus = (status: LogStatus) => {
@@ -28,14 +40,6 @@ const logStatus = (status: LogStatus) => {
     default:
       process.stdout.write(' Status Unknown ❓\n')
   }
-}
-
-const pkgInstaller = (dev = false) => {
-  if (hasYarn()) {
-    return dev ? 'yarn add -D' : 'yarn add'
-  }
-
-  return dev ? 'npm install --save-dev' : 'npm install'
 }
 
 const run = (command: string) => new Promise((resolve, reject) => {
@@ -56,25 +60,50 @@ const run = (command: string) => new Promise((resolve, reject) => {
   })
 })
 
-exec(hasYarn() ? 'yarn' : 'npm install', async () => {
+const pkgInstaller = (dev = false): string => {
+  if (hasYarn()) {
+    return dev ? 'yarn add -D' : 'yarn add'
+  }
+
+  return dev ? 'npm install --save-dev' : 'npm install'
+}
+
+const pkgInit = async (): Promise<void> => {
+  if (!await pathExists(`${process.cwd()}/package.json`)) {
+    if (hasYarn()) {
+      await run('yarn init -y')
+    } else {
+      await run('npm init -y')
+    }
+  }
+}
+
+const createDirectories = async (): Promise<void> => {
+  await ensureDir('pages')
   await ensureDir('components')
   await ensureDir('layout')
   await ensureDir('public')
   await ensureDir('style')
+}
 
+const installScripts = async (): Promise<void> => {
   const pkgPath = `${process.cwd()}/package.json`
 
   const pkgString = (await readFile(pkgPath)).toString()
   const pkgJson = JSON.parse(pkgString)
 
-  pkgJson.scripts = {
-    dev: 'next',
-    build: 'next build',
-    start: 'next start',
+  if (!pkgJson.scripts) {
+    pkgJson.scripts = {}
   }
 
-  await writeFile(pkgPath, JSON.stringify(pkgJson, null, 2))
+  pkgJson.scripts.dev = getKeyIfExists(pkgJson.scripts, 'dev', 'next')
+  pkgJson.scripts.build = getKeyIfExists(pkgJson.scripts, 'build', 'next build')
+  pkgJson.scripts.start = getKeyIfExists(pkgJson.scripts, 'start', 'next start')
 
+  await writeFile(pkgPath, JSON.stringify(pkgJson, null, 2))
+}
+
+const tsconfigInfo = (): void => {
   console.log('Add the following to your `tsconfig.json` inside `compilerOptions`')
   console.log(stripIndent`
     "baseUrl": ".",
@@ -85,6 +114,40 @@ exec(hasYarn() ? 'yarn' : 'npm install', async () => {
       "@/style/*": ["style/*"]
     }
   `)
+}
+
+const createNextConfig = async (): Promise<void> => {
+  if (!await pathExists('test-next-config.js')) {
+    await writeFile('test-next.config.js', `${stripIndent`
+      /* eslint-disable no-param-reassign */
+
+      const path = require('path')
+
+      module.exports = {
+        webpack: (config) => {
+          config.resolve.extensions.push('.ts', '.tsx')
+          config.resolve.alias['@'] = path.resolve(__dirname)
+
+          return config
+        },
+      }
+    `}\n`)
+  }
+}
+
+const runCommands = (): void => {
+  console.log('Run these commands manually: \n')
+  console.log('npx eslint')
+  console.log('npx tsc --init')
+}
+
+exec(hasYarn() ? 'yarn' : 'npm install', async () => {
+  await pkgInit()
+  await installScripts()
+  await createDirectories()
+  await tsconfigInfo()
+  await createNextConfig()
+  await runCommands()
 
   log('Installing eslint')
   await run(`${pkgInstaller(true)} eslint`)
@@ -101,24 +164,5 @@ exec(hasYarn() ? 'yarn' : 'npm install', async () => {
   log('Installing Sass support')
   await run(`${pkgInstaller(true)} sass`)
 
-  if (!await pathExists('test-next-config.js')) {
-    await writeFile('test-next.config.js', stripIndent`
-      /* eslint-disable no-param-reassign */
-
-      const path = require('path')
-
-      module.exports = {
-        webpack: (config) => {
-          config.resolve.extensions.push('.ts', '.tsx')
-          config.resolve.alias['@'] = path.resolve(__dirname)
-
-          return config
-        },
-      }
-    `)
-  }
-
   console.log('')
-
-  log('Don\'t forget to run `npx eslint`', '')
 })
