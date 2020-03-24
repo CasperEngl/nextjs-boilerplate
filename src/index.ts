@@ -1,7 +1,6 @@
 #!/usr/bin / env node
 
 import { exec } from 'child_process'
-import hasYarn from 'has-yarn'
 import { stripIndent } from 'common-tags'
 import {
   readFile,
@@ -10,8 +9,14 @@ import {
   ensureDir,
 } from 'fs-extra'
 
-const log = (message: string, suffix = '...'): void => {
-  process.stdout.write(`${message.trim()}${suffix}`)
+import hasYarn from 'has-yarn'
+
+function assertUnreachable(_: never): never { // eslint-disable-line
+  throw new Error('Didn\'t expect to get here')
+}
+
+const stdOut = (message: string): void => {
+  process.stdout.write(message.trim())
 }
 
 type Object = {
@@ -55,17 +60,28 @@ const run = (command: string) => new Promise((resolve, reject) => {
       stderr,
       stdout,
     })
-
-    return true
   })
 })
 
-const pkgInstaller = (dev = false): string => {
-  if (hasYarn()) {
-    return dev ? 'yarn add -D' : 'yarn add'
+type PkgInstallFlag = 'SAVE' | 'SAVE_DEV' | undefined
+
+const pkgInstaller = (mode: PkgInstallFlag): string => {
+  switch (mode) {
+    case 'SAVE':
+      return hasYarn() ? 'yarn add' : 'npm install --save'
+    case 'SAVE_DEV':
+      return hasYarn() ? 'yarn add -D' : 'npm install --save-dev'
+    case undefined:
+      return hasYarn() ? 'yarn' : 'npm'
   }
 
-  return dev ? 'npm install --save-dev' : 'npm install'
+  return assertUnreachable(mode)
+}
+
+const install = async (mode: PkgInstallFlag, packages: string): Promise<void> => {
+  stdOut(`Installing ${packages}...`)
+
+  await run(`${pkgInstaller(mode)} ${packages}`)
 }
 
 const pkgInit = async (): Promise<void> => {
@@ -117,8 +133,8 @@ const tsconfigInfo = (): void => {
 }
 
 const createNextConfig = async (): Promise<void> => {
-  if (!await pathExists('test-next-config.js')) {
-    await writeFile('test-next.config.js', `${stripIndent`
+  if (!await pathExists('next.config.js')) {
+    await writeFile('next.config.js', `${stripIndent`
       /* eslint-disable no-param-reassign */
 
       const path = require('path')
@@ -141,27 +157,22 @@ const runCommands = (): void => {
   console.log('npx tsc --init')
 }
 
-exec(hasYarn() ? 'yarn' : 'npm install', async () => {
+exec(pkgInstaller(), async () => {
   await pkgInit()
   await installScripts()
   await createDirectories()
   await tsconfigInfo()
   await createNextConfig()
 
-  log('Installing eslint')
-  await run(`${pkgInstaller(true)} eslint`)
+  await install('SAVE_DEV', 'eslint')
 
-  log('Installing typescript and typescript parser')
-  await run(`${pkgInstaller(true)} typescript @typescript-eslint/parser`)
+  await install('SAVE_DEV', 'typescript @typescript-eslint/parser')
 
-  log('Installing required Next packages')
-  await run(`${pkgInstaller()} next react react-dom`)
+  await install('SAVE', 'next react react-dom')
 
-  log('Installing types for Next packages')
-  await run(`${pkgInstaller(true)} @types/next @types/react @types/react-dom @types/node`)
+  await install('SAVE_DEV', '@types/next @types/react @types/react-dom @types/node')
 
-  log('Installing Sass support')
-  await run(`${pkgInstaller(true)} sass`)
+  await install('SAVE_DEV', 'sass')
 
   console.log('')
 

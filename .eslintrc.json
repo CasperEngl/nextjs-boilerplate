@@ -24,6 +24,7 @@
         "no-console": 0,
         "no-extend-native": 0,
         "no-restricted-syntax": 0,
-        "func-names": 0
+        "func-names": 0,
+        "default-case": 0
     }
 }
